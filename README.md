@@ -1,30 +1,15 @@
+Why this fork
+=============
+
+## Smart indentation
+I strongly recomend installing the `haskell-mode` package and enabling `haskell-indent-mode` in Lean buffers. It will provide a replacement (IMHO a better one) for the "enhanced relative indent" code that I have removed from this fork.
+
 Installation
 ============
 
 Before using this major mode, you need to [install Lean 4](https://leanprover.github.io/lean4/doc/setup.html#basic-setup).
 
-To use `lean4-mode` in Emacs, add the following to your `init.el`:
-```
-;; You need to modify the following line
-(setq load-path (cons "/path/to/lean4-mode" load-path))
-
-(setq lean4-mode-required-packages '(dash flycheck lsp-mode magit-section))
-
-(require 'package)
-(add-to-list 'package-archives '("melpa" . "http://melpa.org/packages/"))
-(package-initialize)
-(let ((need-to-refresh t))
-  (dolist (p lean4-mode-required-packages)
-    (when (not (package-installed-p p))
-      (when need-to-refresh
-        (package-refresh-contents)
-        (setq need-to-refresh nil))
-      (package-install p))))
-
-(require 'lean4-mode)
-```
-Alternatively if you are a fan of `use-package` and `straight.el` you
-can use:
+To install `lean4-mode` in Emacs with `straight.el`, you can use:
 ```
 (use-package lean4-mode
   :straight (lean4-mode
@@ -34,13 +19,6 @@ can use:
 	     :files ("*.el" "data"))
   ;; to defer loading the package until required
   :commands (lean4-mode))
-```
-If you are a doom-emacs user, adding the following to `packages.el` should work:
-```
-(package! lean4-mode :recipe
-  (:host github
-   :repo "leanprover/lean4-mode"
-   :files ("*.el" "data")))
 ```
 
 Trying It Out

@@ -59,10 +59,15 @@ First try to find an executable named `lean4-executable-name' in
   (let ((default-directory (lean4-get-rootdir)))
     (expand-file-name exe-name (expand-file-name "bin"))))
 
-(defun lean4-whitespace-cleanup ()
-  "Delete trailing whitespace if `lean4-delete-trailing-whitespace' is t."
-  (when lean4-delete-trailing-whitespace
-      (delete-trailing-whitespace)))
+(defun lean4--server-cmd ()
+  "Return Lean server command.
+If found lake version at least 3.1.0, then return '/path/to/lake serve',
+otherwise return '/path/to/lean --server'."
+  (condition-case nil
+      (if (string-version-lessp (car (process-lines (lean4-get-executable "lake") "--version")) "3.1.0")
+          `(,(lean4-get-executable lean4-executable-name) "--server")
+        `(,(lean4-get-executable "lake") "serve"))
+    (error `(,(lean4-get-executable lean4-executable-name) "--server"))))
 
 (provide 'lean4-util)
 ;;; lean4-util.el ends here
