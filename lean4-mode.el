@@ -42,6 +42,7 @@
 
 ;;; Code:
 
+(require 'eglot)
 (require 'lean4-settings)
 (require 'lean4-syntax)
 (require 'lean4-fringe)
