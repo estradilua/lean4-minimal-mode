@@ -42,18 +42,9 @@
 
 ;;; Code:
 
-(require 'lean4-util)
 (require 'lean4-settings)
 (require 'lean4-syntax)
 (require 'lean4-fringe)
-(require 'lean4-lake)
-
-;; Silence byte-compiler
-(defvar lsp--cur-version)
-(defvar markdown-code-lang-modes)
-(defvar compilation-mode-font-lock-keywords)
-(declare-function lean-mode "ext:lean-mode")
-(declare-function quail-show-key "quail")
 
 (defun lean4-refresh-file-dependencies ()
   "Refresh the file dependencies.
@@ -64,9 +55,6 @@ file, recompiling, and reloading all imports."
   (when eglot--managed-mode
     (eglot--signal-textDocument/didClose)
     (eglot--signal-textDocument/didOpen)))
-
-(define-abbrev-table 'lean4-abbrev-table
-  '())
 
 (defvar lean4-mode-map (make-sparse-keymap)
   "Keymap used in Lean mode.")
@@ -95,8 +83,7 @@ of the parent project."
   "Major mode for Lean.
 \\{lean4-mode-map}
 Invokes `lean4-mode-hook'."
-  :syntax-table lean4-syntax-table
-  :abbrev-table lean4-abbrev-table
+  :syntax-table lean4-mode-syntax-table
   :group 'lean
   (setq-local comment-start "--")
   (setq-local comment-start-skip "[-/]-[ \t]*")
@@ -108,8 +95,7 @@ Invokes `lean4-mode-hook'."
   (setq-local indent-tabs-mode nil)
   (add-to-list (make-local-variable 'project-find-functions) #'lean4--eglot-project)
   (require 'lean4-input)
-  (set-input-method "Lean")
-  (lean4-connect))
+  (set-input-method "Lean"))
 
 ;; Automatically use lean4-mode for .lean files.
 ;;;###autoload
@@ -123,7 +109,9 @@ Invokes `lean4-mode-hook'."
 ;;;###autoload
 (modify-coding-system-alist 'file "\\.lean\\'" 'utf-8)
 
-(add-hook 'lean4-mode-hook #'eglot)
+;; Setup Eglot
+(add-hook 'lean4-mode-hook #'eglot-ensure)
+(push (cons 'lean4-mode '("lake" "serve")) eglot-server-programs)
 
 (provide 'lean4-mode)
 ;;; lean4-mode.el ends here

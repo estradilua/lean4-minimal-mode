@@ -70,7 +70,7 @@
   (eval `(rx word-start (or ,@lean4-debugging))))
 
 
-(defconst lean4-syntax-table
+(defconst lean4-mode-syntax-table
   (let ((st (make-syntax-table)))
     ;; Matching parens
     (modify-syntax-entry ?\[ "(]" st)
