@@ -58,9 +58,8 @@
   "Convert a string S to a list of one-character strings.
 First remove all space and newline characters."
   (lean4-input-concat-map
-   (lambda (c) (if (member c (string-to-list " \n"))
-              nil
-            (list (string c))))
+   (lambda (c) (unless (member c (string-to-list " \n"))
+                 (list (string c))))
    (string-to-list s)))
 
 (defun lean4-input-character-range (from to)
@@ -269,8 +268,8 @@ Use customisable variables and parent input methods to setup Lean input method."
 The purpose of this input method is to edit Lean programs, but
 since it is highly customisable it can be made useful for other
 tasks as well."
-     nil nil nil nil nil nil t ; maximum-shortest
-     ))
+     nil nil nil nil nil nil t)) ; maximum-shortest
+     
 
   (lean4-input-add-translations (mapcar (lambda (tr) (cons (car tr) (vconcat (cdr tr))))
                                         lean4-input-user-translations))
