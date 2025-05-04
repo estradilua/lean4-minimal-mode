@@ -1,9 +1,9 @@
 ;;; lean4-infoview.el --- External infoview implementation for lean4-minimal-mode  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2025  lua
+;; Copyright (c) 2025 Lua Reis. All rights reserved.
 
-;; Author: lua <me@lua.blog.br>
-;; Keywords: 
+;; Author: Lua <me@lua.blog.br>
+;; Keywords: languages 
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
