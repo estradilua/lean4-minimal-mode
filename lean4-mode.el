@@ -2,18 +2,18 @@
 
 ;; Copyright (c) 2013, 2014 Microsoft Corporation. All rights reserved.
 ;; Copyright (c) 2014, 2015 Soonho Kong. All rights reserved.
-;; Copyright (c) 2024 Lucas Reis. All rights reserved.
+;; Copyright (c) 2024, 2025 Lua Reis. All rights reserved.
 
 ;; Author: Leonardo de Moura <leonardo@microsoft.com>
 ;;         Soonho Kong       <soonhok@cs.cmu.edu>
 ;;         Gabriel Ebner     <gebner@gebner.org>
 ;;         Sebastian Ullrich <sebasti@nullri.ch>
-;;         Lucas Reis        <lvreis@usp.br>
-;; Maintainer: Lucas Reis <lvreis@usp.br>
+;;         Lua               <me@lua.blog.br>
+;; Maintainer: Lua <me@lua.blog.br>
 ;; Created: Jan 09, 2014
 ;; Keywords: languages
 ;; Package-Requires: ((emacs "27.1") (dash "2.18.0") (eglot "1.15"))
-;; URL: https://github.com/lucasvries/lean4-eglot-mode
+;; URL: https://github.com/estradilua/lean4-minimal-mode
 ;; SPDX-License-Identifier: Apache-2.0
 
 ;;; License:
