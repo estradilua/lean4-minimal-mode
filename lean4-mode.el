@@ -100,7 +100,7 @@ Invokes `lean4-mode-hook'."
 
 ;; Automatically use lean4-mode for .lean files.
 ;;;###autoload
-(push '("\\.lean$" . lean4-mode) auto-mode-alist)
+(add-to-list '("\\.lean\'" . lean4-mode) auto-mode-alist)
 
 ;;;###autoload
 (with-eval-after-load 'markdown-mode
