@@ -43,9 +43,13 @@
 ;;; Code:
 
 (require 'eglot)
-(require 'lean4-settings)
 (require 'lean4-syntax)
 (require 'lean4-fringe)
+
+(defgroup lean4 nil
+  "Lean 4 programming language and theorem prover."
+  :prefix "lean4-"
+  :group 'languages
 
 (defun lean4-refresh-file-dependencies ()
   "Refresh the file dependencies.
