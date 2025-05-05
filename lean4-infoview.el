@@ -45,66 +45,131 @@
 
 ;;;; Editor API implementation
 
-(defun lean4-infoview--save-config (config)
+(defclass lean4-infoview--connection (jsonrpc-connection)
+  ((socket :initarg :socket))
+  :documentation "Represents a connection to an infoview window.")
+
+(cl-defmethod jsonrpc-connection-send ((connection lean4-infoview--connection)
+                                       &rest args
+                                       &key
+                                       id
+                                       method
+                                       _params
+                                       (_result nil result-supplied-p)
+                                       error)
+  "Send MESSAGE, a JSON object, to CONNECTION."
+  (when method
+    (setq args
+          (plist-put args :method
+                     (cond ((keywordp method) (substring (symbol-name method) 1))
+                           ((symbolp method) (symbol-name method))
+                           ((stringp method) method)
+                           (t (error "[jsonrpc] invalid method %s" method))))))
+  (let* ((kind (cond ((or result-supplied-p error) 'reply)
+                     (id 'request)
+                     (method 'notification)))
+         (converted (jsonrpc-convert-to-endpoint connection args kind))
+         (json (jsonrpc--json-encode converted)))
+    (with-slots (socket) connection
+      (websocket-send-text socket json))
+    (jsonrpc--event
+     connection
+     'client
+     :json json
+     :kind kind
+     :message args
+     :foreign-message converted)))
+
+(defun lean4-infoview--server (port &rest args)
+  (websocket-server port
+                    :host (or (plist-get :host args) 'local)
+                    :on-open #'lean4-infoview--conn-open
+                    :on-message #'lean4-infoview--conn-message))
+
+(defun lean4-infoview--conn-open (socket)
+  (let ((conn (lean4-infoview--connection
+               :socket socket
+               :request-dispatcher #'lean4-infoview--dispatcher
+               :notification-dispatcher #'lean4-infoview--dispatcher)))
+    (setf (websocket-client-data socket) conn)))
+
+(defun lean4-infoview--conn-message (socket frame)
+  (let ((conn (websocket-client-data socket))
+        (msg (json-parse-string (websocket-frame-text frame)
+                                :object-type 'plist
+                                :null-object nil
+                                :false-object :json-false)))
+    (jsonrpc-connection-receive conn msg)))
+
+(cl-defgeneric lean4-infoview--dispatcher (conn method params))
+
+(cl-defmethod lean4-infoview--dispatcher
+  (_ (_ (eql saveConfig)) &key config)
   (message "NOT IMPLEMENTED: save-config"))
 
-(defun lean4-infoview--send-client-request (uri method params)
+(cl-defmethod lean4-infoview--dispatcher
+  (_ (_ (eql sendClientRequest)) &key uri method params)
   (with-current-buffer (find-file-noselect (eglot-uri-to-path uri))
     (eglot--request (eglot--current-server-or-lose) method params)))
 
-(defun lean4-infoview--send-client-notification (uri method params)
+(cl-defmethod lean4-infoview--dispatcher
+  (_ (_ (eql sendClientNotification)) &key uri method params)
   (with-current-buffer (find-file-noselect (eglot-uri-to-path uri))
     (jsonrpc-notify (eglot--current-server-or-lose) method params)))
 
-(defun lean4-infoview--subscribe-server-notifications (method)
+(cl-defmethod lean4-infoview--dispatcher
+  (_ (_ (eql subscribeServerNotifications)) &key method)
   (message "NOT IMPLEMENTED: subscribe-server-notifications"))
 
-(defun lean4-infoview--unsubscribe-server-notifications (method)
+(cl-defmethod lean4-infoview--dispatcher
+  (_ (_ (eql unsubscribeServerNotifications)) &key method)
   (message "NOT IMPLEMENTED: unsubscribe-server-notifications"))
 
-(defun lean4-infoview--subscribe-client-notifications (method)
+(cl-defmethod lean4-infoview--dispatcher
+  (_ (_ (eql subscribeClientNotifications)) &key method)
   (message "NOT IMPLEMENTED: subscribe-client-notifications"))
 
-(defun lean4-infoview--unsubscribe-client-notifications (method)
+(cl-defmethod lean4-infoview--dispatcher
+  (_ (_ (eql unsubscribeClientNotifications)) &key method)
   (message "NOT IMPLEMENTED: unsubscribe-client-notifications"))
 
-(defun lean4-infoview--copy-to-clipboard (text)
+(cl-defmethod lean4-infoview--dispatcher
+  (_ (_ (eql copyToClipboard)) &key text)
   (with-temp-buffer
     (insert text)
     (clipboard-kill-ring-save (point-min) (point-max))))
 
-(defun lean4-infoview--insert-text (text kind &optional pos)
+(cl-defmethod lean4-infoview--dispatcher
+  (_ (_ (eql insertText)) &key text kind pos)
   (save-excursion
     (when pos
       (cl-destructuring-bind (:textDocument (:uri uri) :position position) pos
         (with-current-buffer (find-file-noselect (eglot-uri-to-path uri))
           (goto-char (eglot--lsp-position-to-point position)))))
-    (pcase kind ("above" (forward-line -1)))
+    (pcase kind
+      ("above" (forward-line -1)))
     (insert text)))
 
-(defun lean4-infoview--apply-edit (te)
+(cl-defmethod lean4-infoview--dispatcher
+  (_ (_ (eql applyEdit)) &key te)
   (eglot--apply-workspace-edit te 'lean4-infoview))
 
-(defun lean4-infoview--show-document (show)
+(cl-defmethod lean4-infoview--dispatcher
+  (_ (_ (eql showDocument)) &key show)
   (apply 'eglot-handle-request nil 'window/showDocument show))
 
-(defun lean4-infoview--restart-file (uri)
+(cl-defmethod lean4-infoview--dispatcher
+  (_ (_ (eql restartFile)) &key uri)
   (with-current-buffer (find-file-noselect (eglot-uri-to-path uri))
     (eglot-reconnect (eglot-current-server))))
 
-(defun lean4-infoview--create-rpc-session (uri)
+(cl-defmethod lean4-infoview--dispatcher
+  (_ (_ (eql createRpcSession)) &key uri)
   (message "NOT IMPLEMENTED: create-rpc-session"))
 
-(defun lean4-infoview--close-rpc-session (session-id)
+(cl-defmethod lean4-infoview--dispatcher
+  (_ (_ (eql closeRpcSession)) &key sessionId)
   (message "NOT IMPLEMENTED: close-rpc-session"))
-
-
-;;;; Websocket
-
-; Thanks 
-
-; Infoview requests are a JSON blob consisting of 
-
 
 (provide 'lean4-infoview)
 ;;; lean4-infoview.el ends here
