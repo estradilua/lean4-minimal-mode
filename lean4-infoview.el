@@ -70,8 +70,7 @@
                      (method 'notification)))
          (converted (jsonrpc-convert-to-endpoint connection args kind))
          (json (jsonrpc--json-encode converted)))
-    (with-slots (socket) connection
-      (websocket-send-text socket json))
+    (websocket-send-text (oref socket connection) json)
     (jsonrpc--event
      connection
      'client
@@ -146,8 +145,8 @@
       (cl-destructuring-bind (:textDocument (:uri uri) :position position) pos
         (with-current-buffer (find-file-noselect (eglot-uri-to-path uri))
           (goto-char (eglot--lsp-position-to-point position)))))
-    (pcase kind
-      ("above" (forward-line -1)))
+    (when (equal kind "above")
+      (forward-line -1))
     (insert text)))
 
 (cl-defmethod lean4-infoview--dispatcher
@@ -170,6 +169,9 @@
 (cl-defmethod lean4-infoview--dispatcher
   (_ (_ (eql closeRpcSession)) &key sessionId)
   (message "NOT IMPLEMENTED: close-rpc-session"))
+
+
+;;;; HTTP server
 
 (provide 'lean4-infoview)
 ;;; lean4-infoview.el ends here
