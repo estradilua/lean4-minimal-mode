@@ -42,8 +42,8 @@
 
 ;;; Code:
 
-(require 'eglot)
 (require 'lean4-syntax)
+(require 'lean4-server)
 (require 'lean4-fringe)
 
 (defgroup lean4 nil
@@ -51,36 +51,28 @@
   :prefix "lean4-"
   :group 'languages
 
-(defun lean4-refresh-file-dependencies ()
-  "Refresh the file dependencies.
-
-This function restarts the server subprocess for the current
-file, recompiling, and reloading all imports."
-  (interactive)
-  (when eglot--managed-mode
-    (eglot--signal-textDocument/didClose)
-    (eglot--signal-textDocument/didOpen)))
-
 (defvar lean4-mode-map (make-sparse-keymap)
   "Keymap used in Lean mode.")
 
-(defun lean4--eglot-project (initial)
-  "Find the Lean 4 Eglot project for path INITIAL.
+(defun lean4--project (initial)
+  "Find the Lean 4 project for path INITIAL.
 
 Starting from INITIAL, repeatedly look up the
 directory hierarchy for a directory containing a file
 \"lean-toolchain\", and use the last such directory found, if any.
 This allows us to edit files in child packages using the settings
 of the parent project."
-  (when eglot-lsp-context
-    (let (root)
-      (when-let ((file-name initial))
-        (while-let ((dir (locate-dominating-file file-name "lean-toolchain")))
-          ;; We found a toolchain file, but maybe it belongs to a package.
-          ;; Continue looking until there are no more toolchain files.
-          (setq root dir
-                file-name (file-name-directory (directory-file-name dir)))))
-      (when root (list 'eglot--project root)))))
+  (let (root)
+    (when-let ((file-name initial))
+      (while-let ((dir (locate-dominating-file file-name "lean-toolchain")))
+        ;; We found a toolchain file, but maybe it belongs to a package.
+        ;; Continue looking until there are no more toolchain files.
+        (setq root dir
+              file-name (file-name-directory (directory-file-name dir)))))
+    (when root (cons 'lean4 root)))))
+
+(cl-defmethod project-root ((project (head lean4)))
+  (cdr project))
 
 ;; Automode List
 ;;;###autoload
@@ -98,13 +90,13 @@ Invokes `lean4-mode-hook'."
   (setq-local comment-use-syntax t)
   (setq-local font-lock-defaults lean4-font-lock-defaults)
   (setq-local indent-tabs-mode nil)
-  (add-to-list (make-local-variable 'project-find-functions) #'lean4--eglot-project)
+  (add-to-list (make-local-variable 'project-find-functions) #'lean4--project)
   (require 'lean4-input)
   (set-input-method "Lean"))
 
 ;; Automatically use lean4-mode for .lean files.
 ;;;###autoload
-(add-to-list '("\\.lean\'" . lean4-mode) auto-mode-alist)
+(add-to-list 'auto-mode-alist '("\\.lean\'" . lean4-mode))
 
 ;;;###autoload
 (with-eval-after-load 'markdown-mode
@@ -113,10 +105,6 @@ Invokes `lean4-mode-hook'."
 ;; Use utf-8 encoding
 ;;;###autoload
 (modify-coding-system-alist 'file "\\.lean\\'" 'utf-8)
-
-;; Setup Eglot
-(add-hook 'lean4-mode-hook #'eglot-ensure)
-(push (cons 'lean4-mode '("lake" "serve")) eglot-server-programs)
 
 (provide 'lean4-mode)
 ;;; lean4-mode.el ends here
