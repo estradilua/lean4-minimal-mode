@@ -96,6 +96,7 @@
 (defun lean4-infoview--conn-open (lsp-server socket)
   (let ((conn (lean4-infoview--connection
                :socket socket
+               :name "Lean4 Infoview"
                :events-buffer-config '(:size 2000000 :format full)
                :request-dispatcher #'lean4-infoview--dispatcher
                :notification-dispatcher #'lean4-infoview--dispatcher)))
@@ -104,92 +105,106 @@
 
 (defun lean4-infoview--conn-close (lsp-server socket)
   (oset lsp-server infoviews
-        (cl-delete socket (oref lsp-server infoviews))))
+        (cl-delete socket (oref lsp-server infoviews)
+                   :key (lambda (i) (oref i socket)))))
 
 (defun lean4-infoview--conn-message (socket frame)
-  (let ((conn (websocket-client-data socket))
-        (msg (json-parse-string (websocket-frame-text frame)
-                                :object-type 'plist
-                                :null-object nil
-                                :false-object :json-false)))
-    (jsonrpc-connection-receive conn msg)))
+  (let* ((conn (websocket-client-data socket))
+         (json (websocket-frame-text frame))
+         (msg (json-parse-string json
+                                 :object-type 'plist
+                                 :null-object nil
+                                 :false-object :json-false)))
+    (jsonrpc-connection-receive conn (plist-put msg :jsonrpc-json json))))
 
 (cl-defgeneric lean4-infoview--dispatcher (conn method params))
 
 (cl-defmethod lean4-infoview--dispatcher
-  (_ (_ (eql saveConfig)) &key config)
-  (message "NOT IMPLEMENTED: save-config"))
+  (_ (_ (eql saveConfig)) params)
+  (cl-destructuring-bind (&key config) params
+    (message "NOT IMPLEMENTED: save-config")))
 
 (cl-defmethod lean4-infoview--dispatcher
-  (conn (_ (eql sendClientRequest)) &key uri method params)
-  (with-current-buffer (find-file-noselect (eglot-uri-to-path uri))
-    (eglot--request (eglot--current-server-or-lose) method params)))
+  (conn (_ (eql sendClientRequest)) params)
+  (cl-destructuring-bind (&key uri method params) params
+    (with-current-buffer (find-file-noselect (eglot-uri-to-path uri))
+      (eglot--request (eglot--current-server-or-lose) method params))))
 
 (cl-defmethod lean4-infoview--dispatcher
-  (conn (_ (eql sendClientNotification)) &key uri method params)
-  (with-current-buffer (find-file-noselect (eglot-uri-to-path uri))
-    (jsonrpc-notify (eglot--current-server-or-lose) method params)))
+  (conn (_ (eql sendClientNotification)) params)
+  (cl-destructuring-bind (&key uri method params) params
+    (with-current-buffer (find-file-noselect (eglot-uri-to-path uri))
+      (jsonrpc-notify (eglot--current-server-or-lose) method params))))
 
 (cl-defmethod lean4-infoview--dispatcher
-  (conn (_ (eql subscribeServerNotifications)) &key method)
-  (push method (oref conn server-watchers)))
+  (conn (_ (eql subscribeServerNotifications)) params)
+  (cl-destructuring-bind (&key method) params
+    (push (intern method) (oref conn server-watchers))))
 
 (cl-defmethod lean4-infoview--dispatcher
-  (conn (_ (eql unsubscribeServerNotifications)) &key method)
-  (oset conn server-watchers
-        (cl-delete method (oref conn server-watchers) :count 1)))
+  (conn (_ (eql unsubscribeServerNotifications)) params)
+  (cl-destructuring-bind (&key method) params
+    (oset conn server-watchers
+          (cl-delete (intern method) (oref conn server-watchers)
+                     :count 1))))
 
 (cl-defmethod lean4-infoview--dispatcher
-  (conn (_ (eql subscribeClientNotifications)) &key method)
-  (push method (oref conn client-watchers)))
+  (conn (_ (eql subscribeClientNotifications)) params)
+  (cl-destructuring-bind (&key method) params
+    (push (intern method) (oref conn client-watchers))))
 
 (cl-defmethod lean4-infoview--dispatcher
-  (conn (_ (eql unsubscribeClientNotifications)) &key method)
-  (oset conn client-watchers
-        (cl-delete method (oref conn client-watchers) :count 1)))
+  (conn (_ (eql unsubscribeClientNotifications)) params)
+  (cl-destructuring-bind (&key method) params
+    (oset conn client-watchers
+          (cl-delete (intern method) (oref conn client-watchers)
+                     :count 1))))
 
 (cl-defmethod lean4-infoview--dispatcher
-  (_ (_ (eql copyToClipboard)) &key text)
-  (with-temp-buffer
-    (insert text)
-    (clipboard-kill-ring-save (point-min) (point-max))))
+  (_ (_ (eql copyToClipboard)) params)
+  (cl-destructuring-bind (&key text) params
+    (with-temp-buffer
+      (insert text)
+      (clipboard-kill-ring-save (point-min) (point-max)))))
 
 (cl-defmethod lean4-infoview--dispatcher
-  (_ (_ (eql insertText)) &key text kind pos)
-  (save-excursion
-    (when pos
-      (cl-destructuring-bind (&key textDocument position) pos
-        (cl-destructuring-bind (&key uri) textDocument
-          (with-current-buffer (find-file-noselect (eglot-uri-to-path uri))
-            (goto-char (eglot--lsp-position-to-point position))))))
-    (when (equal kind "above")
-      (forward-line -1))
-    (insert text)))
+  (_ (_ (eql insertText)) params)
+  (cl-destructuring-bind (&key text kind pos) params
+    (save-excursion
+      (when pos
+        (cl-destructuring-bind (&key textDocument position) pos
+          (cl-destructuring-bind (&key uri) textDocument
+            (with-current-buffer (find-file-noselect (eglot-uri-to-path uri))
+              (goto-char (eglot--lsp-position-to-point position))))))
+      (when (equal kind "above")
+        (forward-line -1))
+      (insert text))))
 
 (cl-defmethod lean4-infoview--dispatcher
-  (_ (_ (eql applyEdit)) &key te)
-  (eglot--apply-workspace-edit te 'lean4-infoview))
+  (_ (_ (eql applyEdit)) params)
+  (cl-destructuring-bind (&key te) params
+    (eglot--apply-workspace-edit te 'lean4-infoview)))
 
 (cl-defmethod lean4-infoview--dispatcher
-  (_ (_ (eql showDocument)) &key show)
-  (apply 'eglot-handle-request nil 'window/showDocument show))
+  (_ (_ (eql showDocument)) params)
+  (cl-destructuring-bind (&key show) params
+    (apply 'eglot-handle-request nil 'window/showDocument show)))
 
 (cl-defmethod lean4-infoview--dispatcher
-  (_ (_ (eql restartFile)) &key uri)
-  (with-current-buffer (find-file-noselect (eglot-uri-to-path uri))
-    (eglot-reconnect (eglot-current-server))))
+  (_ (_ (eql restartFile)) params)
+  (cl-destructuring-bind (&key uri) params
+    (with-current-buffer (find-file-noselect (eglot-uri-to-path uri))
+      (eglot-reconnect (eglot-current-server)))))
 
 (cl-defmethod lean4-infoview--dispatcher
-  (_ (_ (eql createRpcSession)) &key uri)
-  (message "NOT IMPLEMENTED: create-rpc-session"))
+  (_ (_ (eql createRpcSession)) params)
+  (cl-destructuring-bind (&key uri) params
+    (message "NOT IMPLEMENTED: create-rpc-session")))
 
 (cl-defmethod lean4-infoview--dispatcher
-  (_ (_ (eql closeRpcSession)) &key sessionId)
-  (message "NOT IMPLEMENTED: close-rpc-session"))
-
-(cl-defmethod lean4-infoview--dispatcher
-  (_ (_ (eql closeRpcSession)) &key sessionId)
-  (message "NOT IMPLEMENTED: close-rpc-session"))
+  (_ (_ (eql closeRpcSession)) params)
+  (cl-destructuring-bind (&key sessionId) params
+    (message "NOT IMPLEMENTED: close-rpc-session")))
 
 ;; Handle subscribed notifications
 
@@ -198,7 +213,7 @@
   "Handle subscribed server notifications and send them to infoview."
   (dolist (conn (oref server infoviews))
     (when (memq method (oref conn server-watchers))
-      (jsonrpc-notify conn :serverNotification (list :method method
+      (jsonrpc-notify conn :serverNotification (list :method (symbol-name method)
                                                      :params params)))))
 
 (cl-defmethod jsonrpc-connection-send :after
@@ -206,7 +221,7 @@
   "Handle subscribed client notifications and send them to infoview."
   (dolist (conn (oref server infoviews))
     (when (memq method (oref conn client-watchers))
-      (jsonrpc-notify conn :clientNotification (list :method method
+      (jsonrpc-notify conn :clientNotification (list :method (symbol-name method)
                                                      :params params)))))
 
 ;;;; HTTP server
