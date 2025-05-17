@@ -12,7 +12,7 @@
 ;; Maintainer: Lua <me@lua.blog.br>
 ;; Created: Jan 09, 2014
 ;; Keywords: languages
-;; Package-Requires: ((emacs "27.1") (dash "2.18.0") (eglot "1.15"))
+;; Package-Requires: ((emacs "27.1") (eglot "1.15") (simple-httpd "1.5") (websocket "1.15"))
 ;; URL: https://github.com/estradilua/lean4-minimal-mode
 ;; SPDX-License-Identifier: Apache-2.0
 
@@ -49,7 +49,7 @@
 (defgroup lean4 nil
   "Lean 4 programming language and theorem prover."
   :prefix "lean4-"
-  :group 'languages
+  :group 'languages)
 
 (defvar lean4-mode-map (make-sparse-keymap)
   "Keymap used in Lean mode.")
@@ -69,7 +69,7 @@ of the parent project."
         ;; Continue looking until there are no more toolchain files.
         (setq root dir
               file-name (file-name-directory (directory-file-name dir)))))
-    (when root (cons 'lean4 root)))))
+    (when root (cons 'lean4 root))))
 
 (cl-defmethod project-root ((project (head lean4)))
   (cdr project))
