@@ -45,13 +45,15 @@
 
 (defun lean4-infoview--server (port lsp-server &optional host)
   "Create a websocket listening at HOST:PORT for server LSP-SERVER."
-  (websocket-server port
-                    :host (or host 'local)
-                    :on-open (lambda (socket)
-                               (lean4-infoview--conn-open lsp-server socket))
-                    :on-close (lambda (socket)
-                               (lean4-infoview--conn-close lsp-server socket))
-                    :on-message #'lean4-infoview--conn-message))
+  (let ((server (websocket-server
+                 port
+                 :host (or host 'local)
+                 :on-open (lambda (socket)
+                            (lean4-infoview--conn-open lsp-server socket))
+                 :on-close (lambda (socket)
+                             (lean4-infoview--conn-close lsp-server socket))
+                 :on-message #'lean4-infoview--conn-message)))
+    (oset lsp-server socket-server server)))
 
 ;;;; Editor API implementation
 
@@ -94,6 +96,7 @@
 (defun lean4-infoview--conn-open (lsp-server socket)
   (let ((conn (lean4-infoview--connection
                :socket socket
+               :events-buffer-config '(:size 2000000 :format full)
                :request-dispatcher #'lean4-infoview--dispatcher
                :notification-dispatcher #'lean4-infoview--dispatcher)))
     (setf (websocket-client-data socket) conn)
@@ -138,12 +141,12 @@
 
 (cl-defmethod lean4-infoview--dispatcher
   (conn (_ (eql subscribeClientNotifications)) &key method)
-  (push method (oref conn server-watchers)))
+  (push method (oref conn client-watchers)))
 
 (cl-defmethod lean4-infoview--dispatcher
   (conn (_ (eql unsubscribeClientNotifications)) &key method)
-  (oset conn server-watchers
-        (cl-delete method (oref conn server-watchers) :count 1)))
+  (oset conn client-watchers
+        (cl-delete method (oref conn client-watchers) :count 1)))
 
 (cl-defmethod lean4-infoview--dispatcher
   (_ (_ (eql copyToClipboard)) &key text)
@@ -202,7 +205,7 @@
   ((server eglot-lean4-server) &key _id method params _result _error)
   "Handle subscribed client notifications and send them to infoview."
   (dolist (conn (oref server infoviews))
-    (when (memq method (oref conn server-watchers))
+    (when (memq method (oref conn client-watchers))
       (jsonrpc-notify conn :clientNotification (list :method method
                                                      :params params)))))
 

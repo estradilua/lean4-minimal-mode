@@ -25,11 +25,16 @@
 ;;; Code:
 
 (require 'eglot)
+(require 'websocket)
 
 ;; Eglot subclass definition
 (defclass eglot-lean4-server (eglot-lsp-server)
-  ((infoviews :initform nil))
+  ((infoviews :initform nil)
+   (socket-server :initform nil))
   :documentation "Eglot Lean4 server.")
+
+(cl-defmethod jsonrpc-shutdown :before ((server eglot-lean4-server))
+  (websocket-server-close (oref server socket-server)))
 
 ;; Setup Eglot
 (add-hook 'lean4-mode-hook #'eglot-ensure)
