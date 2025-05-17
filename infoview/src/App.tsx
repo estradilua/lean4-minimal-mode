@@ -38,15 +38,20 @@ export class RPCEditorApi implements EditorApi {
       conn.rejectAllPendingRequests(`Connection is closed (${event.reason}).`);
     };
 
-    conn.addMethod('serverNotification', ({ method, params }) => api.gotServerNotification(method, params));
+    conn.addMethod('serverNotification', ({ method, params }) =>
+      api.gotServerNotification(method, params));
 
-    conn.addMethod('clientNotification', ({ method, params }) => api.sentClientNotification(method, params));
+    conn.addMethod('clientNotification', ({ method, params }) =>
+      api.sentClientNotification(method, params));
 
-    conn.addMethod('serverRestarted', ({ result }) => api.serverRestarted(result));
+    conn.addMethod('serverRestarted', ({ result }) =>
+      api.serverRestarted(result));
 
-    conn.addMethod('serverStopped', ({ reason }) => api.serverStopped(reason));
+    conn.addMethod('serverStopped', ({ reason }) =>
+      api.serverStopped(reason));
 
-    conn.addMethod('changedCursorLocation', ({ loc }) => api.changedCursorLocation(loc));
+    conn.addMethod('changedCursorLocation', ({ loc }) =>
+      api.changedCursorLocation(loc));
 
     this.panel = { conn, api }
   }
