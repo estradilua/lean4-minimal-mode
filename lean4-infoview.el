@@ -110,11 +110,12 @@
       (if mark-active
           (cons (region-beginning) (region-end))
         (cons (point) (point)))
-    (list :uri (eglot--TextDocumentIdentifier)
-          :range (list :start
-                       (eglot--pos-to-lsp-position start)
-                       :end
-                       (eglot--pos-to-lsp-position end)))))
+    (ignore-errors
+      (list :uri (eglot--TextDocumentIdentifier)
+            :range (list :start
+                         (eglot--pos-to-lsp-position start)
+                         :end
+                         (eglot--pos-to-lsp-position end))))))
 
 (defun lean4-infoview--conn-open (socket)
   "Open a connection for infoview using the given SOCKET."
