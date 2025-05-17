@@ -26,15 +26,29 @@
 
 (require 'eglot)
 (require 'websocket)
+(require 'lean4-infoview)
 
 ;; Eglot subclass definition
-(defclass eglot-lean4-server (eglot-lsp-server)
-  ((infoviews :initform nil)
-   (socket-server :initform nil))
+(defclass eglot-lean4-server (eglot-lsp-server) ()
   :documentation "Eglot Lean4 server.")
 
-(cl-defmethod jsonrpc-shutdown :before ((server eglot-lean4-server) &optional _)
-  (websocket-server-close (oref server socket-server)))
+(cl-defmethod eglot-handle-notification :after
+  ((_ eglot-lean4-server) method &rest params)
+  "Send server notifications to the subscribed infoviews."
+  (dolist (conn lean4-infoview--connections)
+    (when (memq method (oref conn server-watchers))
+      (jsonrpc-notify conn :serverNotification
+                      (list :method (symbol-name method)
+                            :params params)))))
+
+(cl-defmethod jsonrpc-connection-send :after
+  ((_ eglot-lean4-server) &key _id method params _result _error)
+  "Send client notifications to the subscribed infoviews."
+  (dolist (conn lean4-infoview--connections)
+    (when (memq method (oref conn client-watchers))
+      (jsonrpc-notify conn :clientNotification
+                      (list :method (symbol-name method)
+                            :params params)))))
 
 ;; Setup Eglot
 (add-hook 'lean4-mode-hook #'eglot-ensure)

@@ -27,7 +27,6 @@
 (require 'simple-httpd)
 (require 'websocket)
 (require 'eglot)
-(require 'lean4-server)
 
 (defvar lean4-infoview-config
   '(:allErrorsOnLine t
@@ -43,19 +42,31 @@
     :hideLetValues :json-false
     :showTooltipOnHover t))
 
-(defun lean4-infoview--server (port lsp-server &optional host)
-  "Create a websocket listening at HOST:PORT for server LSP-SERVER."
-  (let ((server (websocket-server
-                 port
-                 :host (or host 'local)
-                 :on-open (lambda (socket)
-                            (lean4-infoview--conn-open lsp-server socket))
-                 :on-close (lambda (socket)
-                             (lean4-infoview--conn-close lsp-server socket))
-                 :on-message #'lean4-infoview--conn-message)))
-    (oset lsp-server socket-server server)))
+(defvar lean4-infoview-port 6174
+  "Port for the websocket server.")
 
-;;;; Editor API implementation
+(defvar lean4-infoview-host 'local
+  "Host for the websocket server.")
+
+(defvar lean4-infoview--server nil
+  "The global infoview websocket server.")
+
+(defvar lean4-infoview--connections nil
+  "Global list of infoview connections to server.")
+
+(defun lean4-infoview--start-server ()
+  "Start or restart the infoview server."
+  (when lean4-infoview--server
+    (websocket-server-close lean4-infoview--server))
+  (setq lean4-infoview--server
+        (websocket-server
+         lean4-infoview-port
+         :host lean4-infoview-host
+         :on-open #'lean4-infoview--conn-open
+         :on-close #'lean4-infoview--conn-close
+         :on-message #'lean4-infoview--conn-message)))
+
+;;;; Websocket RPC connection
 
 (defclass lean4-infoview--connection (jsonrpc-connection)
   ((socket :initarg :socket)
@@ -71,7 +82,7 @@
                                        _params
                                        (_result nil result-supplied-p)
                                        error)
-  "Send MESSAGE, a JSON object, to CONNECTION."
+  "Send message ARGS to CONNECTION."
   (when method
     (setq args
           (plist-put args :method
@@ -93,7 +104,20 @@
      :message args
      :foreign-message converted)))
 
-(defun lean4-infoview--conn-open (lsp-server socket)
+(defun lean4-infoview--location ()
+  "Return a Location with the active mark or the point position."
+  (cl-destructuring-bind (start . end)
+      (if mark-active
+          (cons (region-beginning) (region-end))
+        (cons (point) (point)))
+    (list :uri (eglot--TextDocumentIdentifier)
+          :range (list :start
+                       (eglot--pos-to-lsp-position start)
+                       :end
+                       (eglot--pos-to-lsp-position end)))))
+
+(defun lean4-infoview--conn-open (socket)
+  "Open a connection for infoview using the given SOCKET."
   (let ((conn (lean4-infoview--connection
                :socket socket
                :name "Lean4 Infoview"
@@ -101,14 +125,20 @@
                :request-dispatcher #'lean4-infoview--dispatcher
                :notification-dispatcher #'lean4-infoview--dispatcher)))
     (setf (websocket-client-data socket) conn)
-    (push conn (oref lsp-server infoviews))))
+    (push conn lean4-infoview--connections)
 
-(defun lean4-infoview--conn-close (lsp-server socket)
-  (oset lsp-server infoviews
-        (cl-delete socket (oref lsp-server infoviews)
+    ;; Initialize
+    (jsonrpc-notify conn :initialize
+                    (list :loc (lean4-infoview--location)))))
+
+(defun lean4-infoview--conn-close (socket)
+  "Remove the connection of SOCKET from `lean4-infoview--connections'."
+  (setq lean4-infoview--connections
+        (cl-delete socket lean4-infoview--connections
                    :key (lambda (i) (oref i socket)))))
 
 (defun lean4-infoview--conn-message (socket frame)
+  "Receive RPC message FRAME from websocket SOCKET."
   (let* ((conn (websocket-client-data socket))
          (json (websocket-frame-text frame))
          (msg (json-parse-string json
@@ -116,6 +146,8 @@
                                  :null-object nil
                                  :false-object :json-false)))
     (jsonrpc-connection-receive conn (plist-put msg :jsonrpc-json json))))
+
+;;;; Editor API implementation
 
 (cl-defgeneric lean4-infoview--dispatcher (conn method params))
 
@@ -205,24 +237,6 @@
   (_ (_ (eql closeRpcSession)) params)
   (cl-destructuring-bind (&key sessionId) params
     (message "NOT IMPLEMENTED: close-rpc-session")))
-
-;; Handle subscribed notifications
-
-(cl-defmethod eglot-handle-notification :after
-  ((server eglot-lean4-server) method &rest params)
-  "Handle subscribed server notifications and send them to infoview."
-  (dolist (conn (oref server infoviews))
-    (when (memq method (oref conn server-watchers))
-      (jsonrpc-notify conn :serverNotification (list :method (symbol-name method)
-                                                     :params params)))))
-
-(cl-defmethod jsonrpc-connection-send :after
-  ((server eglot-lean4-server) &key _id method params _result _error)
-  "Handle subscribed client notifications and send them to infoview."
-  (dolist (conn (oref server infoviews))
-    (when (memq method (oref conn client-watchers))
-      (jsonrpc-notify conn :clientNotification (list :method (symbol-name method)
-                                                     :params params)))))
 
 ;;;; HTTP server
 
