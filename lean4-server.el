@@ -33,7 +33,7 @@
    (socket-server :initform nil))
   :documentation "Eglot Lean4 server.")
 
-(cl-defmethod jsonrpc-shutdown :before ((server eglot-lean4-server))
+(cl-defmethod jsonrpc-shutdown :before ((server eglot-lean4-server) &optional _)
   (websocket-server-close (oref server socket-server)))
 
 ;; Setup Eglot

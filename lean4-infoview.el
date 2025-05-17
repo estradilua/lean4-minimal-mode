@@ -100,7 +100,7 @@
                :request-dispatcher #'lean4-infoview--dispatcher
                :notification-dispatcher #'lean4-infoview--dispatcher)))
     (setf (websocket-client-data socket) conn)
-    (push socket (oref lsp-server infoviews))))
+    (push conn (oref lsp-server infoviews))))
 
 (defun lean4-infoview--conn-close (lsp-server socket)
   (oset lsp-server infoviews
