@@ -44,7 +44,7 @@
 
 (require 'lean4-syntax)
 (require 'lean4-server)
-(require 'lean4-fringe)
+(require 'lean4-infoview)
 
 (defgroup lean4 nil
   "Lean 4 programming language and theorem prover."
