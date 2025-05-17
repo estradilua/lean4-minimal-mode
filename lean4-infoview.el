@@ -238,6 +238,12 @@
   (cl-destructuring-bind (&key sessionId) params
     (message "NOT IMPLEMENTED: close-rpc-session")))
 
+(defun lean4-infoview--send-location ()
+  "Send current location to all connections."
+  (dolist (conn lean4-infoview--connections)
+    (jsonrpc-notify conn :changedCursorLocation
+                    (list :loc (lean4-infoview--location)))))
+
 ;;;; HTTP server
 
 (provide 'lean4-infoview)
