@@ -129,7 +129,8 @@
 
     ;; Initialize
     (jsonrpc-notify conn :initialize
-                    (list :loc (lean4-infoview--location)))))
+                    (list :loc (lean4-infoview--location)))
+    (lean4-infoview--send-initialize (eglot-current-server))))
 
 (defun lean4-infoview--conn-close (socket)
   "Remove the connection of SOCKET from `lean4-infoview--connections'."
@@ -243,6 +244,17 @@
   (dolist (conn lean4-infoview--connections)
     (jsonrpc-notify conn :changedCursorLocation
                     (list :loc (lean4-infoview--location)))))
+
+(defun lean4-infoview--send-initialize (server)
+  "Send initialization info of SERVER to all connections."
+  (when (object-of-class-p server 'eglot-lean4-server)
+    (with-slots (capabilities server-info) server
+      (dolist (conn lean4-infoview--connections)
+        (jsonrpc-notify conn :serverRestarted
+                        (list :capabilities capabilities
+                              :serverInfo server-info))))))
+
+(add-hook 'eglot-connect-hook #'lean4-infoview--send-initialize)
 
 ;;;; HTTP server
 

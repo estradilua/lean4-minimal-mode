@@ -39,7 +39,7 @@ export class RPCEditorApi implements EditorApi {
     };
 
     conn.addMethod('initialize', ({ loc }) =>
-        api.initialize(loc));
+      api.initialize(loc));
 
     conn.addMethod('serverNotification', ({ method, params }) =>
       api.gotServerNotification(method, params));
