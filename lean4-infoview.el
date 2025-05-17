@@ -44,6 +44,7 @@
     :showTooltipOnHover t))
 
 (defun lean4-infoview--server (port lsp-server &optional host)
+  "Create a websocket listening at HOST:PORT for server LSP-SERVER."
   (websocket-server port
                     :host (or host 'local)
                     :on-open (lambda (socket)
