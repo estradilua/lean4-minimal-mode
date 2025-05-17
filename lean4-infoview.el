@@ -198,7 +198,7 @@
                                                      :params params)))))
 
 (cl-defmethod jsonrpc-connection-send :after
-  ((server eglot-lean4-server) &key method params)
+  ((server eglot-lean4-server) &key _id method params _result _error)
   "Handle subscribed client notifications and send them to infoview."
   (dolist (conn (oref server infoviews))
     (when (memq method (oref conn server-watchers))
