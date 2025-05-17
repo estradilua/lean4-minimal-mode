@@ -9,7 +9,7 @@ export class RPCEditorApi implements EditorApi {
   private panel?: { conn: JSONRPCServerAndClient, api: InfoviewApi };
 
   initPanel(api: InfoviewApi) {
-    const socket = new WebSocket('ws://localhost:4321');
+    const socket = new WebSocket('ws://localhost:6174');
 
     const conn = new JSONRPCServerAndClient(
       new JSONRPCServer(),
@@ -37,6 +37,9 @@ export class RPCEditorApi implements EditorApi {
     socket.onclose = (event) => {
       conn.rejectAllPendingRequests(`Connection is closed (${event.reason}).`);
     };
+
+    conn.addMethod('initialize', ({ loc }) =>
+        api.initialize(loc));
 
     conn.addMethod('serverNotification', ({ method, params }) =>
       api.gotServerNotification(method, params));
