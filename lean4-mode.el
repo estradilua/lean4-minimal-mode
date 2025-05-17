@@ -98,6 +98,8 @@ Invokes `lean4-mode-hook'."
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.lean\'" . lean4-mode))
 
+(defvar markdown-code-lang-modes)
+
 ;;;###autoload
 (with-eval-after-load 'markdown-mode
   (add-to-list 'markdown-code-lang-modes '("lean" . lean4-mode)))
