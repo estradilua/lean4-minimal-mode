@@ -27,6 +27,7 @@
 (require 'simple-httpd)
 (require 'websocket)
 (require 'eglot)
+(require 'lean4-server)
 
 (defvar lean4-infoview-config
   '(:allErrorsOnLine t
@@ -42,11 +43,21 @@
     :hideLetValues :json-false
     :showTooltipOnHover t))
 
+(defun lean4-infoview--server (port lsp-server &optional host)
+  (websocket-server port
+                    :host (or host 'local)
+                    :on-open (lambda (socket)
+                               (lean4-infoview--conn-open lsp-server socket))
+                    :on-close (lambda (socket)
+                               (lean4-infoview--conn-close lsp-server socket))
+                    :on-message #'lean4-infoview--conn-message))
 
 ;;;; Editor API implementation
 
 (defclass lean4-infoview--connection (jsonrpc-connection)
-  ((socket :initarg :socket))
+  ((socket :initarg :socket)
+   (client-watchers :initform nil)
+   (server-watchers :initform nil))
   :documentation "Represents a connection to an infoview window.")
 
 (cl-defmethod jsonrpc-connection-send ((connection lean4-infoview--connection)
@@ -70,7 +81,7 @@
                      (method 'notification)))
          (converted (jsonrpc-convert-to-endpoint connection args kind))
          (json (jsonrpc--json-encode converted)))
-    (websocket-send-text (oref socket connection) json)
+    (websocket-send-text (oref connection socket) json)
     (jsonrpc--event
      connection
      'client
@@ -79,18 +90,17 @@
      :message args
      :foreign-message converted)))
 
-(defun lean4-infoview--server (port &rest args)
-  (websocket-server port
-                    :host (or (plist-get :host args) 'local)
-                    :on-open #'lean4-infoview--conn-open
-                    :on-message #'lean4-infoview--conn-message))
-
-(defun lean4-infoview--conn-open (socket)
+(defun lean4-infoview--conn-open (lsp-server socket)
   (let ((conn (lean4-infoview--connection
                :socket socket
                :request-dispatcher #'lean4-infoview--dispatcher
                :notification-dispatcher #'lean4-infoview--dispatcher)))
-    (setf (websocket-client-data socket) conn)))
+    (setf (websocket-client-data socket) conn)
+    (push socket (oref lsp-server infoviews))))
+
+(defun lean4-infoview--conn-close (lsp-server socket)
+  (oset lsp-server infoviews
+        (cl-delete socket (oref lsp-server infoviews))))
 
 (defun lean4-infoview--conn-message (socket frame)
   (let ((conn (websocket-client-data socket))
@@ -107,30 +117,32 @@
   (message "NOT IMPLEMENTED: save-config"))
 
 (cl-defmethod lean4-infoview--dispatcher
-  (_ (_ (eql sendClientRequest)) &key uri method params)
+  (conn (_ (eql sendClientRequest)) &key uri method params)
   (with-current-buffer (find-file-noselect (eglot-uri-to-path uri))
     (eglot--request (eglot--current-server-or-lose) method params)))
 
 (cl-defmethod lean4-infoview--dispatcher
-  (_ (_ (eql sendClientNotification)) &key uri method params)
+  (conn (_ (eql sendClientNotification)) &key uri method params)
   (with-current-buffer (find-file-noselect (eglot-uri-to-path uri))
     (jsonrpc-notify (eglot--current-server-or-lose) method params)))
 
 (cl-defmethod lean4-infoview--dispatcher
-  (_ (_ (eql subscribeServerNotifications)) &key method)
-  (message "NOT IMPLEMENTED: subscribe-server-notifications"))
+  (conn (_ (eql subscribeServerNotifications)) &key method)
+  (push method (oref conn server-watchers)))
 
 (cl-defmethod lean4-infoview--dispatcher
-  (_ (_ (eql unsubscribeServerNotifications)) &key method)
-  (message "NOT IMPLEMENTED: unsubscribe-server-notifications"))
+  (conn (_ (eql unsubscribeServerNotifications)) &key method)
+  (oset conn server-watchers
+        (cl-delete method (oref conn server-watchers) :count 1)))
 
 (cl-defmethod lean4-infoview--dispatcher
-  (_ (_ (eql subscribeClientNotifications)) &key method)
-  (message "NOT IMPLEMENTED: subscribe-client-notifications"))
+  (conn (_ (eql subscribeClientNotifications)) &key method)
+  (push method (oref conn server-watchers)))
 
 (cl-defmethod lean4-infoview--dispatcher
-  (_ (_ (eql unsubscribeClientNotifications)) &key method)
-  (message "NOT IMPLEMENTED: unsubscribe-client-notifications"))
+  (conn (_ (eql unsubscribeClientNotifications)) &key method)
+  (oset conn server-watchers
+        (cl-delete method (oref conn server-watchers) :count 1)))
 
 (cl-defmethod lean4-infoview--dispatcher
   (_ (_ (eql copyToClipboard)) &key text)
@@ -142,9 +154,10 @@
   (_ (_ (eql insertText)) &key text kind pos)
   (save-excursion
     (when pos
-      (cl-destructuring-bind (:textDocument (:uri uri) :position position) pos
-        (with-current-buffer (find-file-noselect (eglot-uri-to-path uri))
-          (goto-char (eglot--lsp-position-to-point position)))))
+      (cl-destructuring-bind (&key textDocument position) pos
+        (cl-destructuring-bind (&key uri) textDocument
+          (with-current-buffer (find-file-noselect (eglot-uri-to-path uri))
+            (goto-char (eglot--lsp-position-to-point position))))))
     (when (equal kind "above")
       (forward-line -1))
     (insert text)))
@@ -170,6 +183,27 @@
   (_ (_ (eql closeRpcSession)) &key sessionId)
   (message "NOT IMPLEMENTED: close-rpc-session"))
 
+(cl-defmethod lean4-infoview--dispatcher
+  (_ (_ (eql closeRpcSession)) &key sessionId)
+  (message "NOT IMPLEMENTED: close-rpc-session"))
+
+;; Handle subscribed notifications
+
+(cl-defmethod eglot-handle-notification :after
+  ((server eglot-lean4-server) method &rest params)
+  "Handle subscribed server notifications and send them to infoview."
+  (dolist (conn (oref server infoviews))
+    (when (memq method (oref conn server-watchers))
+      (jsonrpc-notify conn :serverNotification (list :method method
+                                                     :params params)))))
+
+(cl-defmethod jsonrpc-connection-send :after
+  ((server eglot-lean4-server) &key method params)
+  "Handle subscribed client notifications and send them to infoview."
+  (dolist (conn (oref server infoviews))
+    (when (memq method (oref conn server-watchers))
+      (jsonrpc-notify conn :clientNotification (list :method method
+                                                     :params params)))))
 
 ;;;; HTTP server
 
