@@ -41,7 +41,7 @@
 (add-to-list 'eglot-server-programs '(lean4-mode eglot-lean4-server "lake" "serve"))
 
 ;; Commands (requests)
-(defun lean4-refresh-file-dependencies ()
+(defun lean4-restart-file ()
   "Refresh the file dependencies.
 
 This function restarts the server subprocess for the current
