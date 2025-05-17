@@ -96,7 +96,7 @@ Invokes `lean4-mode-hook'."
 
 ;; Automatically use lean4-mode for .lean files.
 ;;;###autoload
-(add-to-list 'auto-mode-alist '("\\.lean\'" . lean4-mode))
+(add-to-list 'auto-mode-alist '("\\.lean\\'" . lean4-mode))
 
 (defvar markdown-code-lang-modes)
 
