@@ -12,7 +12,7 @@
 ;; Maintainer: Lua <me@lua.blog.br>
 ;; Created: Jan 09, 2014
 ;; Keywords: languages
-;; Package-Requires: ((emacs "27.1") (eglot "1.15") (simple-httpd "1.5") (websocket "1.15"))
+;; Package-Requires: ((emacs "27.1") (eglot "1.15") (simple-httpd "1.5.1") (websocket "1.15"))
 ;; URL: https://github.com/estradilua/lean4-minimal-mode
 ;; SPDX-License-Identifier: Apache-2.0
 
