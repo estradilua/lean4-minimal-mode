@@ -71,7 +71,8 @@
 (defclass lean4-infoview--connection (jsonrpc-connection)
   ((socket :initarg :socket)
    (client-watchers :initform nil)
-   (server-watchers :initform nil))
+   (server-watchers :initform nil)
+   (rpc-sessions :initform nil))
   :documentation "Represents a connection to an infoview window.")
 
 (cl-defmethod jsonrpc-connection-send ((connection lean4-infoview--connection)
@@ -135,6 +136,8 @@
 
 (defun lean4-infoview--conn-close (socket)
   "Remove the connection of SOCKET from `lean4-infoview--connections'."
+  (dolist (s (oref (websocket-client-data socket) rpc-sessions))
+    (cancel-timer (cdr s)))
   (setq lean4-infoview--connections
         (cl-delete socket lean4-infoview--connections
                    :key (lambda (i) (oref i socket)))))
@@ -231,14 +234,33 @@
       (eglot-reconnect (eglot-current-server)))))
 
 (cl-defmethod lean4-infoview--dispatcher
-  (_ (_ (eql createRpcSession)) params)
+  (conn (_ (eql createRpcSession)) params)
   (cl-destructuring-bind (&key uri) params
-    (message "NOT IMPLEMENTED: create-rpc-session")))
+    (with-current-buffer (find-file-noselect (eglot-uri-to-path uri))
+      (let* ((server (eglot-current-server))
+             ;; todo: could this be async?
+             (session-id (jsonrpc-request server
+                                          :$/lean/rpc/connect
+                                          (list :uri uri)))
+             (keepalive (run-with-timer
+                         10 10
+                         (jsonrpc-notify server
+                                         :$/lean/rpc/keepAlive
+                                         (list :uri uri
+                                               :sessionId session-id)))))
+        (push (cons session-id keepalive) (oref conn rpc-sessions))
+        session-id))))
 
 (cl-defmethod lean4-infoview--dispatcher
-  (_ (_ (eql closeRpcSession)) params)
+  (conn (_ (eql closeRpcSession)) params)
   (cl-destructuring-bind (&key sessionId) params
-    (message "NOT IMPLEMENTED: close-rpc-session")))
+    (oset conn rpc-sessions
+          (delq nil (map-apply
+                     (lambda (id timer)
+                       (if (string= id sessionId)
+                           (cancel-timer timer)
+                         (cons id timer)))
+                     (oref conn rpc-sessions))))))
 
 (defun lean4-infoview--send-location ()
   "Send current location to all connections."
