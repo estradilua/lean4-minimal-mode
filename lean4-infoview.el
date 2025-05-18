@@ -112,11 +112,12 @@
           (cons (region-beginning) (region-end))
         (cons (point) (point)))
     (ignore-errors
-      (list :uri (eglot--TextDocumentIdentifier)
+      (apply #'list 
             :range (list :start
                          (eglot--pos-to-lsp-position start)
                          :end
-                         (eglot--pos-to-lsp-position end))))))
+                         (eglot--pos-to-lsp-position end))
+            (eglot--TextDocumentIdentifier)))))
 
 (defun lean4-infoview--conn-open (socket)
   "Open a connection for infoview using the given SOCKET."
@@ -274,8 +275,9 @@
     (with-slots (capabilities server-info) server
       (dolist (conn lean4-infoview--connections)
         (jsonrpc-notify conn :serverRestarted
-                        (list :capabilities capabilities
-                              :serverInfo server-info))))))
+                        (list :result
+                              (list :capabilities capabilities
+                                    :serverInfo server-info)))))))
 
 (add-hook 'eglot-connect-hook #'lean4-infoview--send-initialize)
 
