@@ -157,6 +157,21 @@
         (cl-delete socket lean4-infoview--connections
                    :key (lambda (i) (oref i socket)))))
 
+;; HACK, FIXME: `json-serialize' hardcodes a limit of 50 depth levels,
+;; which is not enough for some Lean responses. If emacs-devel does
+;; not change this, we need to make eglot--request use `json-encode'
+;; instead.
+(defvar lean4-infoview--use-encode nil
+  "Dynamically non-nil to use `lean4-infoview--json-encode'.")
+
+(advice-add 'jsonrpc--json-encode :around
+            (defun lean4-infoview--json-encode (f obj)
+              (if lean4-infoview--use-encode
+                   (let ((json-false :json-false)
+                         (json-null nil))
+                     (json-encode obj))
+                (funcall f obj))))
+
 (defun lean4-infoview--conn-message (socket frame)
   "Receive RPC message FRAME from websocket SOCKET."
   (let* ((conn (websocket-client-data socket))
@@ -165,7 +180,8 @@
                                  :object-type 'plist
                                  :null-object nil
                                  :false-object :json-false)))
-    (jsonrpc-connection-receive conn (plist-put msg :jsonrpc-json json))))
+    (let ((lean4-infoview--use-encode t))
+      (jsonrpc-connection-receive conn (plist-put msg :jsonrpc-json json)))))
 
 ;;;; Editor API implementation
 
@@ -177,13 +193,13 @@
     (message "NOT IMPLEMENTED: save-config")))
 
 (cl-defmethod lean4-infoview--dispatcher
-  (conn (_ (eql sendClientRequest)) params)
+  (_ (_ (eql sendClientRequest)) params)
   (cl-destructuring-bind (&key uri method params) params
     (with-current-buffer (find-file-noselect (eglot-uri-to-path uri))
       (eglot--request (eglot-current-server) method params))))
 
 (cl-defmethod lean4-infoview--dispatcher
-  (conn (_ (eql sendClientNotification)) params)
+  (_ (_ (eql sendClientNotification)) params)
   (cl-destructuring-bind (&key uri method params) params
     (with-current-buffer (find-file-noselect (eglot-uri-to-path uri))
       (jsonrpc-notify (eglot--current-server-or-lose) method params))))
