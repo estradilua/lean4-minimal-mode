@@ -278,7 +278,7 @@
 
 ;;; Infoview API calls
 
-(defun lean4-infoview--send-location ()
+(defun lean4-infoview--send-location (&rest _)
   "Send current location to all connections."
   (when (eglot-lean4-server-p (eglot-current-server))
     (dolist (conn lean4-infoview--connections)
