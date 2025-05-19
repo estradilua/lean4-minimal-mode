@@ -54,6 +54,9 @@
 (defvar lean4-infoview-host 'local
   "Host for the websocket server.")
 
+(defvar lean4-infoview-events-buffer-config '(:size 0 :format full)
+  "Logging configuration for the infoview RPC connection.")
+
 (defvar lean4-infoview--server nil
   "The global infoview websocket server.")
 
@@ -130,13 +133,13 @@
   (let ((conn (lean4-infoview--connection
                :socket socket
                :name "Lean4 Infoview"
-               :events-buffer-config '(:size 2000000 :format full)
+               :events-buffer-config lean4-infoview-events-buffer-config
                :request-dispatcher #'lean4-infoview--dispatcher
                :notification-dispatcher #'lean4-infoview--dispatcher)))
     (setf (websocket-client-data socket) conn)
     (push conn lean4-infoview--connections)
 
-    ;; Initialize, either with the current buffer, or some other lean buffer
+    ;; Initialize, either with the current buffer, or some other Lean server
     (lean4-infoview--send-location)
     (let* ((current (eglot-current-server))
            (server (or (and (eglot-lean4-server-p current) current)
