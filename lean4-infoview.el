@@ -27,6 +27,12 @@
 (require 'simple-httpd)
 (require 'websocket)
 (require 'eglot)
+(require 'lean4-server)
+
+(defgroup lean4-infoview nil
+  "Lean 4 infoview."
+  :prefix "lean4-infoview-"
+  :group 'lean4)
 
 (defvar lean4-infoview-config
   '(:allErrorsOnLine t
@@ -280,6 +286,26 @@
                                     :serverInfo server-info)))))))
 
 (add-hook 'eglot-connect-hook #'lean4-infoview--send-initialize)
+
+;;; Hooks for intercepting RPC calls
+
+(cl-defmethod eglot-handle-notification :after
+  ((_ eglot-lean4-server) method &rest params)
+  "Send server notifications to the subscribed infoviews."
+  (dolist (conn lean4-infoview--connections)
+    (when (memq method (oref conn server-watchers))
+      (jsonrpc-notify conn :serverNotification
+                      (list :method (symbol-name method)
+                            :params params)))))
+
+(cl-defmethod jsonrpc-connection-send :after
+  ((_ eglot-lean4-server) &key _id method params _result _error)
+  "Send client notifications to the subscribed infoviews."
+  (dolist (conn lean4-infoview--connections)
+    (when (memq method (oref conn client-watchers))
+      (jsonrpc-notify conn :clientNotification
+                      (list :method (symbol-name method)
+                            :params params)))))
 
 ;;;; HTTP server
 
