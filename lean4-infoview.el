@@ -177,7 +177,7 @@
   (conn (_ (eql sendClientRequest)) params)
   (cl-destructuring-bind (&key uri method params) params
     (with-current-buffer (find-file-noselect (eglot-uri-to-path uri))
-      (eglot--request (eglot--current-server-or-lose) method params))))
+      (eglot--request (eglot-current-server) method params))))
 
 (cl-defmethod lean4-infoview--dispatcher
   (conn (_ (eql sendClientNotification)) params)
@@ -251,15 +251,17 @@
     (with-current-buffer (find-file-noselect (eglot-uri-to-path uri))
       (let* ((server (eglot-current-server))
              ;; todo: could this be async?
-             (session-id (jsonrpc-request server
-                                          :$/lean/rpc/connect
-                                          (list :uri uri)))
+             (session-id (plist-get (jsonrpc-request server
+                                                     :$/lean/rpc/connect
+                                                     (list :uri uri))
+                                    :sessionId))
              (keepalive (run-with-timer
                          10 10
-                         (jsonrpc-notify server
-                                         :$/lean/rpc/keepAlive
-                                         (list :uri uri
-                                               :sessionId session-id)))))
+                         (lambda ()
+                           (jsonrpc-notify server
+                                           :$/lean/rpc/keepAlive
+                                           (list :uri uri
+                                                 :sessionId session-id))))))
         (push (cons session-id keepalive) (oref conn rpc-sessions))
         session-id))))
 
@@ -274,15 +276,18 @@
                          (cons id timer)))
                      (oref conn rpc-sessions))))))
 
+;;; Infoview API calls
+
 (defun lean4-infoview--send-location ()
   "Send current location to all connections."
-  (dolist (conn lean4-infoview--connections)
-    (jsonrpc-notify conn :changedCursorLocation
-                    (list :loc (lean4-infoview--location)))))
+  (when (eglot-lean4-server-p (eglot-current-server))
+    (dolist (conn lean4-infoview--connections)
+      (jsonrpc-notify conn :changedCursorLocation
+                      (list :loc (lean4-infoview--location))))))
 
 (defun lean4-infoview--send-initialize (server)
   "Send initialization info of SERVER to all connections."
-  (when (object-of-class-p server 'eglot-lean4-server)
+  (when (eglot-lean4-server-p server)
     (with-slots (capabilities server-info) server
       (dolist (conn lean4-infoview--connections)
         (jsonrpc-notify conn :serverRestarted
