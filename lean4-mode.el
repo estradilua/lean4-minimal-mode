@@ -82,6 +82,8 @@ of the parent project."
 Invokes `lean4-mode-hook'."
   :syntax-table lean4-mode-syntax-table
   :group 'lean
+
+  ;; Misc
   (setq-local comment-start "--")
   (setq-local comment-start-skip "[-/]-[ \t]*")
   (setq-local comment-end "")
@@ -91,8 +93,13 @@ Invokes `lean4-mode-hook'."
   (setq-local font-lock-defaults lean4-font-lock-defaults)
   (setq-local indent-tabs-mode nil)
   (add-to-list (make-local-variable 'project-find-functions) #'lean4--project)
+
+  ;; Input (required here as to load lazily)
   (require 'lean4-input)
-  (set-input-method "Lean"))
+  (set-input-method "Lean")
+
+  ;; Infoview
+  (add-hook 'eldoc-documentation-functions #'lean4-infoview--send-location t t))
 
 ;; Automatically use lean4-mode for .lean files.
 ;;;###autoload
