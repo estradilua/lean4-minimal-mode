@@ -136,10 +136,15 @@
     (setf (websocket-client-data socket) conn)
     (push conn lean4-infoview--connections)
 
-    ;; Initialize
-    (jsonrpc-notify conn :initialize
-                    (list :loc (lean4-infoview--location)))
-    (lean4-infoview--send-initialize (eglot-current-server))))
+    ;; Initialize, either with the current buffer, or some other lean buffer
+    (lean4-infoview--send-location)
+    (let* ((current (eglot-current-server))
+           (server (or (and (eglot-lean4-server-p current) current)
+                       (cl-loop for servers hash-values of eglot--servers-by-project do
+                                (dolist (server servers)
+                                  (when (eglot-lean4-server-p server)
+                                    (cl-return server)))))))
+      (lean4-infoview--send-initialize server))))
 
 (defun lean4-infoview--conn-close (socket)
   "Remove the connection of SOCKET from `lean4-infoview--connections'."
