@@ -319,5 +319,16 @@
 
 ;;;; HTTP server
 
+;;; Minor mode
+
+(define-minor-mode lean4-infoview-mode
+  "Infoview server for Lean 4."
+  :global t :group 'lean4-infoview
+  (if lean4-infoview-mode
+      (lean4-infoview--start-server)
+    (when lean4-infoview--server
+      (websocket-server-close lean4-infoview--server)
+      (setq lean4-infoview--server nil))))
+
 (provide 'lean4-infoview)
 ;;; lean4-infoview.el ends here
