@@ -68,7 +68,7 @@ export class RPCEditorApi implements EditorApi {
   }
 
   async sendClientNotification(uri: string, method: string, params: any) {
-    this.panel.conn.notify('sendClientRequest', { uri, method, params });
+    this.panel.conn.notify('sendClientNotification', { uri, method, params });
   }
 
   async subscribeServerNotifications(method: string): Promise<void> {
