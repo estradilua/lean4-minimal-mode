@@ -84,14 +84,16 @@ Invokes `lean4-mode-hook'."
   :group 'lean
 
   ;; Misc
-  (setq-local comment-start "--")
-  (setq-local comment-start-skip "[-/]-[ \t]*")
-  (setq-local comment-end "")
-  (setq-local comment-end-skip "[ \t]*\\(-/\\|\\s>\\)")
-  (setq-local comment-padding 1)
-  (setq-local comment-use-syntax t)
-  (setq-local font-lock-defaults lean4-font-lock-defaults)
-  (setq-local indent-tabs-mode nil)
+  (setq-local tab-width 2
+              standard-indent 2
+              comment-start "--"
+              comment-start-skip "[-/]-[ \t]*"
+              comment-end ""
+              comment-end-skip "[ \t]*\\(-/\\|\\s>\\)"
+              comment-padding 1
+              comment-use-syntax t
+              font-lock-defaults lean4-font-lock-defaults
+              indent-tabs-mode nil)
   (add-to-list (make-local-variable 'project-find-functions) #'lean4--project)
 
   ;; Input (required here as to load lazily)
