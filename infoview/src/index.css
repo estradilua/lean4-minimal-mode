@@ -1,0 +1,21 @@
+* {
+  --mono-family: 'Victor Mono';
+  --sans-family: 'IBM Plex Sans';
+  --background: #fff2f3;
+  --foreground: #4f4073;
+}
+
+body {
+  margin: 10;
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--sans-family), sans-serif;
+}
+
+.font-code {
+  font-family: var(--mono-family), monospace;
+}
+
+.tooltip {
+  background: var(--background);
+}

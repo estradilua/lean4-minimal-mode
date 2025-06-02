@@ -1,1 +1,1 @@
-window.esmsInitOptions = {shimMode: true}
+window.esmsInitOptions = { shimMode: true };
